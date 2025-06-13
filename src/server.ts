@@ -7,35 +7,37 @@ import express from 'express'
 import { Document, ExternalDocument } from 'pdfjs'
 import { print } from './shared-browser'
 
-const port = 3000
+const port = process.env.PORT || 3000  // wichtig für Azure!
 const limit = process.env.BODY_LIMIT || '1mb'
 
 express()
   .use(express.json({ limit }))
   .use(bodyParser.text({ type: 'text/html', limit }))
 
-  // Accepts a single HTML document in the body
+  // Einzeldokument PDF
   .post('/', cors(), async (req: Request, res: Response) => {
     const { filename, opts } = parseRequest(req.query as Record<string, string>)
-    res.attachment(filename.replace(/(?:\.pdf)?$/, '.pdf')).send((await print(req.body, opts)))
+    const buffer = await print(req.body, opts)
+    res.attachment(filename.replace(/(?:\.pdf)?$/, '.pdf')).send(buffer)
   })
 
-  // Accepts multiple HTML documents in the body as a Json array of strings
+  // Mehrere HTML-Seiten → eine PDF
   .post('/multiple', cors(), async (req: Request, res: Response) => {
     const { filename, opts } = parseRequest(req.query as Record<string, string>)
     const pages = await Promise.all((req.body as string[]).map(html => print(html, { ...opts })))
-    const doc = pages.reduce((merged, content) => (merged.addPagesOf(new ExternalDocument(content)), merged), new Document())
+    const doc = pages.reduce((merged, content) => {
+      merged.addPagesOf(new ExternalDocument(content))
+      return merged
+    }, new Document())
     res.attachment(filename.replace(/(?:\.pdf)?$/, '.pdf')).send(await doc.asBuffer())
   })
 
-  .options('/{*anything}', cors())
-  .listen(port, (err?: Error) => {
-    if (err) return console.error('ERROR: ', err)
+  .options('/{*}', cors())  // CORS für alles
+
+  .listen(port, () => {
     console.log(`HTML-to-PDF converter listening on port: ${port}`)
   })
 
-// Parse all the parameters to Page#pdf that cannot accept strings
-// See https://pptr.dev/api/puppeteer.pdfoptions
 function parseRequest(query: Record<string, string>): { filename: string, opts: PDFOptions } {
   const sanitised = Object.fromEntries(Object.entries(query).map(([k, v]) => {
     if (['displayHeaderFooter', 'landscape', 'omitBackground', 'outline', 'preferCSSPageSize', 'printBackground', 'tagged', 'waitForFonts'].includes(k)) return [k, v === 'true']
