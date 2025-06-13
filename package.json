@@ -25,6 +25,7 @@
   ],
   "main": "src/server.ts",
   "scripts": {
+   "start": "tsx src/server.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix"
   },
