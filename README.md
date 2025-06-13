@@ -110,3 +110,5 @@ Includes a comprehensive script that lets you build and publish new versions of 
 
 MIT. Do as you please.  
 Refer to the [LICENSE](./LICENSE) file for more details.
+
+<!-- trigger -->
